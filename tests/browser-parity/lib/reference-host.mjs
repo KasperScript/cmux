@@ -6,9 +6,10 @@
 // contract the Rust host implements. Contract
 // (2026-10-01):
 //
-// - natives: secretSet(name, value, {domains, totp}) (agent-known),
-//   secretList(), secretDelete(name), policyNarrow({allowed?, prohibited?,
-//   blockIPAddresses?, lock?}), policyGet(), policyLog(), policyCheck(targetId).
+// - natives (main's ABI, port plan D1): secrets(op, args) with set, load
+//   {object}, list, has, delete, clear (agent-known values only), and
+//   policy(op, args) with get, check {url}, site {host}, log and set
+//   {allowed?, prohibited?, blockIPs?, lock?, title} (narrow only).
 // - effective policy = base (user) intersected with the session layer (agent).
 // - secret handles {__secret: name} resolve only in input.insertText.text,
 //   input.key.text and the page agent's fill (frame.evaluate world "agent",
@@ -321,18 +322,19 @@ export function createReferenceHost(ns, { host, driver }) {
     return {
       allowed: allowed ? allowed.map((p) => p.raw) : null,
       prohibited: [...base.prohibited, ...layer.prohibited].map((p) => p.raw),
-      blockIPAddresses: base.blockIPs || layer.blockIPs,
+      blockIPs: base.blockIPs || layer.blockIPs,
       locked: base.locked || layer.locked,
     };
   };
   let rulesSync = Promise.resolve();
   function narrow(change) {
-    if (base.locked || layer.locked) throw new Error("the domain policy is locked for this session");
+    const title = change.title || "session.policy";
+    if (base.locked || layer.locked) throw new Error(`${title}: the domain policy is locked for this session`);
     // Parse everything before changing anything.
     const allowed = "allowed" in change ? (change.allowed && change.allowed.length ? change.allowed.map((d) => parsePattern(d, "policy")) : null) : layer.allowed;
     const prohibited = "prohibited" in change ? (change.prohibited || []).map((d) => parsePattern(d, "policy")) : layer.prohibited;
     Object.assign(layer, { allowed, prohibited });
-    if ("blockIPAddresses" in change) layer.blockIPs = !!change.blockIPAddresses;
+    if ("blockIPs" in change) layer.blockIPs = !!change.blockIPs;
     if (change.lock) layer.locked = true;
     rulesSync = syncContentRules();
     return flatPolicy();
@@ -535,23 +537,6 @@ export function createReferenceHost(ns, { host, driver }) {
     detach: () => (driver.detach ? driver.detach() : undefined),
   });
 
-  async function policyCheck(targetId) {
-    const pending = blocking.get(targetId);
-    if (pending) await pending;
-    if (!policyActive()) return null;
-    const info = await driver.call("tab.info", { targetId }).catch(() => null);
-    const reason = info && info.url && urlReason(info.url);
-    if (reason) {
-      await blockPage(targetId, info.url, reason);
-      return maskText(`navigation to ${info.url} was blocked: ${reason}; the tab now shows about:blank`);
-    }
-    const last = lastBlock.get(targetId);
-    if (pending && last) {
-      return maskText(`navigation to ${last.url} was blocked: ${last.reason}; the tab now shows about:blank`);
-    }
-    return null;
-  }
-
   const hostedHost = Object.create(null);
   Object.defineProperties(hostedHost, Object.getOwnPropertyDescriptors(host));
   Object.assign(hostedHost, {
@@ -582,19 +567,64 @@ export function createReferenceHost(ns, { host, driver }) {
       }
       throw new Error(`fetch: ${url}: too many redirects`);
     },
-    secretSet: (name, value, options) => putSecret(name, value, options, true, "secrets.set"),
-    secretList: () => [...vault.keys()].map(describe),
-    secretDelete: (name) => {
-      const s = vault.get(name);
-      if (s && !s.agentKnown) return false;
-      const had = vault.delete(name);
-      rebuildMasks();
-      return had;
+    secrets(op, args = {}) {
+      switch (op) {
+        case "set":
+          putSecret(args.name, args.value, { domains: args.domains, totp: args.totp }, true, "secrets.set");
+          return { name: args.name, domains: args.domains, totp: !!vault.get(args.name).totp };
+        case "load": {
+          const merged = new Map();
+          for (const [pattern, entries] of Object.entries(args.object || {})) {
+            for (const [name, v] of Object.entries(entries || {})) {
+              const value = v && typeof v === "object" ? v.value : v;
+              const totp = !!(v && typeof v === "object" && v.totp);
+              const prior = merged.get(name);
+              if (prior && prior.value === value) {
+                prior.domains.push(pattern);
+                prior.totp = prior.totp || totp;
+              } else merged.set(name, { value, domains: [pattern], totp });
+            }
+          }
+          return [...merged].map(([name, m]) => {
+            putSecret(name, m.value, { domains: m.domains, totp: m.totp }, true, "secrets.load");
+            return { name, domains: m.domains, totp: !!vault.get(name).totp };
+          });
+        }
+        case "list":
+          return [...vault.keys()].map(describe);
+        case "has":
+          return vault.has(args.name);
+        case "delete": {
+          const s = vault.get(args.name);
+          if (s && !s.agentKnown) throw new Error(`secrets.delete: ${args.name} is a user secret; agent code cannot change it`);
+          const had = vault.delete(args.name);
+          rebuildMasks();
+          return had;
+        }
+        case "clear":
+          for (const [name, s] of [...vault]) if (s.agentKnown) vault.delete(name);
+          rebuildMasks();
+          return null;
+        default:
+          throw new Error(`secrets: unknown operation ${JSON.stringify(op)}`);
+      }
     },
-    policyNarrow: narrow,
-    policyGet: flatPolicy,
-    policyLog: () => log.map((e) => maskValue({ ...e })),
-    policyCheck,
+    policy(op, args = {}) {
+      switch (op) {
+        case "get":
+          return flatPolicy();
+        case "check":
+          return urlReason(args.url);
+        case "site":
+          return ns.agentTools.registrableDomain(String(args.host || ""));
+        case "log":
+          return log.map((e) => maskValue({ ...e }));
+        case "set":
+          return narrow(args);
+        default:
+          throw new Error(`policy: unknown operation ${JSON.stringify(op)}`);
+      }
+    },
   });
 
   return {
