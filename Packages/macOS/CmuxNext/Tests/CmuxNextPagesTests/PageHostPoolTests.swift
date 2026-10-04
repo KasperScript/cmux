@@ -140,7 +140,7 @@ import WebKit
         PageID.registerBundledRoot(PageShellFixture.webviewsApp, for: PageDescriptor.shell.id)
         let host = try #require(PageWebView(pooledHost: .shell))
         await host.waitUntilLoaded()
-        await host.preloadShellPages()
+        #expect(await host.preloadShellPages(), "the shell did not boot")
         return host
     }
 

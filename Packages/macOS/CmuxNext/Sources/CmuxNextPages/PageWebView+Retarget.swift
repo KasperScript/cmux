@@ -80,11 +80,23 @@ extension PageWebView {
         router.sendCall(PageShellOp.reset, params: [:]) { reply?($0) }
     }
 
-    /// Loads every shell page chunk in the shell (`cmuxShell.preload()`), so a claim mounts in
-    /// the same turn. A host-run script, not a page op: it does not touch the host.
-    func preloadShellPages() async {
-        guard servedDescriptor.id == PageDescriptor.shell.id else { return }
-        _ = try? await webView.callAsyncJavaScript("await globalThis.cmuxShell?.preload(); return true", contentWorld: .page)
+    /// Waits until the shell booted (its module can run after the load finished), then loads
+    /// every shell page chunk (`cmuxShell.preload()`), so a claim mounts in the same turn. True
+    /// when the shell is ready. A host-run script, not a page op: it does not touch the host.
+    func preloadShellPages() async -> Bool {
+        guard servedDescriptor.id == PageDescriptor.shell.id else { return false }
+        let script = """
+        if (!globalThis.cmuxShell) {
+          await Promise.race([
+            new Promise((resolve) => { globalThis.__cmuxShellOnBoot = resolve; }),
+            new Promise((resolve) => setTimeout(resolve, 10000)),
+          ]);
+        }
+        if (!globalThis.cmuxShell) return false;
+        await globalThis.cmuxShell.preload();
+        return true;
+        """
+        return (try? await webView.callAsyncJavaScript(script, contentWorld: .page)) as? Bool == true
     }
 
     /// Whether the document finished loading (its first `didFinish`).

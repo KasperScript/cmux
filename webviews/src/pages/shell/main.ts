@@ -24,6 +24,9 @@ if (root && client) {
   const shell = new PageShell({ client, root, pages: SHELL_PAGES, win: window });
   (globalThis as { cmuxShell?: PageShell }).cmuxShell = shell;
   shell.keepCurrentGlobals();
+  // The host may ask before this module ran (a load can finish first): it waits on this hook.
+  const booted = (globalThis as { __cmuxShellOnBoot?: () => void }).__cmuxShellOnBoot;
+  booted?.();
   const idle = (run: () => void) =>
     typeof requestIdleCallback === "function" ? requestIdleCallback(run, { timeout: 500 }) : setTimeout(run, 0);
   idle(() => void shell.preload());

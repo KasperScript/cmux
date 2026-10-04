@@ -238,7 +238,11 @@ public final class PageHostPool {
             if spare === host { dropSpare() }
             return
         }
-        await host.preloadShellPages()
+        guard await host.preloadShellPages() else {
+            // The shell never booted: no spare; callers open cold.
+            if spare === host { dropSpare() }
+            return
+        }
         guard spare === host else { return }
         spareReady = true
         onSpareReady?(host)
