@@ -136,6 +136,15 @@ import WebKit
         return try #require(host)
     }
 
+    /// A window that is never shown. Not released when closed: ARC owns it (a window released on
+    /// close and again by ARC crashes a later test).
+    static func window() -> NSWindow {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.borderless],
+                              backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        return window
+    }
+
     static func loadedHost() async throws -> PageWebView {
         PageID.registerBundledRoot(PageShellFixture.webviewsApp, for: PageDescriptor.shell.id)
         let host = try #require(PageWebView(pooledHost: .shell))
@@ -190,8 +199,7 @@ import WebKit
 
     @Test func aNewHostAfterAReleaseCannotSeeTheOldHostsStorage() async throws {
         PageID.registerBundledRoot(PageShellFixture.webviewsApp, for: PageDescriptor.shell.id)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.borderless],
-                              backing: .buffered, defer: true)
+        let window = Self.window()
         var policy = PageHostPool.Policy()
         policy.idleInput = .milliseconds(5)
         let pool = PageHostPool(policy: policy, activity: { 0 }, isTrackingMenu: { false })
@@ -224,8 +232,7 @@ import WebKit
 
     @Test func onlyAnUntouchedHostIsRecycled() async throws {
         PageID.registerBundledRoot(PageShellFixture.webviewsApp, for: PageDescriptor.shell.id)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.borderless],
-                              backing: .buffered, defer: true)
+        let window = Self.window()
         var policy = PageHostPool.Policy()
         policy.idleInput = .milliseconds(5)
         let pool = PageHostPool(policy: policy, activity: { 0 }, isTrackingMenu: { false })
@@ -258,8 +265,7 @@ import WebKit
 
     @Test func theSpareWaitsForAQuietPeriod() async throws {
         PageID.registerBundledRoot(PageShellFixture.webviewsApp, for: PageDescriptor.shell.id)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.borderless],
-                              backing: .buffered, defer: true)
+        let window = Self.window()
         var policy = PageHostPool.Policy()
         policy.idleInput = .milliseconds(5)
         var reads = 0

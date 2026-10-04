@@ -20,6 +20,7 @@ struct PageShellBenchTests {
         let panel = NSPanel(contentRect: NSRect(x: x, y: 40, width: 352, height: 420),
                             styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 352, height: 420))
+        panel.isReleasedWhenClosed = false
         panel.orderFrontRegardless()
         return panel
     }
