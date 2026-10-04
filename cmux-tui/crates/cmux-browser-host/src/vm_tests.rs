@@ -144,7 +144,7 @@ fn host_natives_return_json_and_throw_on_refusal() {
         "return JSON.parse(testNative.secrets('set', JSON.stringify({name: 'k', value: 'v', domains: ['a.test']})));",
         Duration::from_secs(5),
     );
-    assert_eq!(lines(&set), vec![r#"{"ok":{"name":"k","domains":[],"totp":false}}"#]);
+    assert_eq!(lines(&set), vec![r#"{"ok":{"domains":[],"name":"k","totp":false}}"#]);
     let refused = vm.eval(
         "return JSON.parse(testNative.policy('set', JSON.stringify({allowed: ['b.test']})));",
         Duration::from_secs(5),

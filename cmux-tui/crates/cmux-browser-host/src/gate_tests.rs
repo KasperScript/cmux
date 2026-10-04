@@ -284,7 +284,8 @@ fn secrets_load_takes_main_s_map_shape() {
     )
     .unwrap();
     let api = loaded.as_array().unwrap().iter().find(|s| s["name"] == "api").unwrap().clone();
-    assert_eq!(api, json!({"name": "api", "domains": ["example.com", "*.example.org"], "totp": false}));
+    // Patterns come in key order of the parsed map (serde_json sorts keys).
+    assert_eq!(api, json!({"name": "api", "domains": ["*.example.org", "example.com"], "totp": false}));
     assert!(loaded.to_string().contains("\"totp\":true"));
     assert!(!loaded.to_string().contains("k-1"));
 }
