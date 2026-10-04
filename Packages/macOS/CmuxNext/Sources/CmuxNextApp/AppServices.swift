@@ -260,6 +260,7 @@ final class AppServices {
             self?.keyRouter.interceptKeyDown(event, in: window) ?? false
         }
         surfaceInvariant.services = self
+        surfaceInvariant.observeWindowOcclusion()
         cache.onPresentationChange = { [weak self] in self?.surfaceInvariant.noteChange() }
         resources = AppResourceSource(services: self)
         windows = WindowManager(services: self)
