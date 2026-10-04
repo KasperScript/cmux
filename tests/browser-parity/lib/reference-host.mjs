@@ -573,8 +573,19 @@ export function createReferenceHost(ns, { host, driver }) {
           putSecret(args.name, args.value, { domains: args.domains, totp: args.totp }, true, "secrets.set");
           return { name: args.name, domains: args.domains, totp: !!vault.get(args.name).totp };
         case "load": {
+          // A path is read here, through the session's fs, as the Rust host
+          // reads it through its sandbox: the values never enter the VM.
+          let object = args.object;
+          if (typeof args.path === "string") {
+            const text = Buffer.from(host.fsOp("readFile", { path: args.path }), "base64").toString("utf8");
+            try {
+              object = JSON.parse(text);
+            } catch {
+              throw new Error(`secrets.load: ${args.path} is not JSON`);
+            }
+          }
           const merged = new Map();
-          for (const [pattern, entries] of Object.entries(args.object || {})) {
+          for (const [pattern, entries] of Object.entries(object || {})) {
             for (const [name, v] of Object.entries(entries || {})) {
               const value = v && typeof v === "object" ? v.value : v;
               const totp = !!(v && typeof v === "object" && v.totp);
