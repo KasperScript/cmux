@@ -195,7 +195,7 @@ try:
     snapshot("markdown-page", page="cmux.markdown")
     # A click places the caret in the document; Cmd-Down then typing edits the last block.
     focus_page("cmux.markdown", ".ProseMirror")
-    expect("an edit reaches the markdown page", type_into("cmux.markdown", "Edited "))
+    expect("an edit reaches the markdown page", type_into("cmux.markdown", "Edited ", ".ProseMirror"))
     save("cmux.markdown")
     saved = wait("the markdown save lands", lambda: b"Edited" in read(MD), 10)
     body = read(MD)

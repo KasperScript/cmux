@@ -33,7 +33,7 @@ struct FilePageTabTests {
         }
         // The initial arming reports once; an unchanged file pushes nothing.
         await settleAndFire()
-        #expect(await DiffSidecarProcessTests.becomesTrue {
+        #expect(await DiffSidecarProcessTests.becomesTrue(within: 20) {
             clock.advance(by: .milliseconds(150))
             return watch.pendingCount == 0
         })
@@ -41,7 +41,7 @@ struct FilePageTabTests {
         try Data("v2".utf8).write(to: file)
         try Data("v3".utf8).write(to: file)
         await settleAndFire()
-        #expect(await DiffSidecarProcessTests.becomesTrue {
+        #expect(await DiffSidecarProcessTests.becomesTrue(within: 20) {
             clock.advance(by: .milliseconds(150))
             return !pushed.isEmpty
         })
@@ -49,7 +49,7 @@ struct FilePageTabTests {
         #expect(pushed.last??.text == "v3")
         try FileManager.default.removeItem(at: file)
         await settleAndFire()
-        #expect(await DiffSidecarProcessTests.becomesTrue {
+        #expect(await DiffSidecarProcessTests.becomesTrue(within: 20) {
             clock.advance(by: .milliseconds(150))
             return pushed.count == 2
         })
