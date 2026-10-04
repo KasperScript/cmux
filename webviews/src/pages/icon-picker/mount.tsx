@@ -27,6 +27,8 @@ export function mountIconPicker(
   client: PageClient | null,
   strings: Strings = createStrings(table),
   makeRoot: typeof createRoot = createRoot,
+  /** A session to show from the first render (the page shell's claim): one render, no remount. */
+  initial?: PickerSession,
 ): MountedPicker {
   const emoji = decodeEmojiTable(rawEmoji as RawEmojiTable);
   const store = new PickerStore({
@@ -62,7 +64,13 @@ export function mountIconPicker(
   };
   document.documentElement.lang = strings.language;
   document.title = strings.t("iconPicker.title");
+  if (initial?.id) {
+    if (initial.symbols) store.configure(initial.symbols, initial.maxEmojiVersion);
+    session = initial;
+    store.reset(initial.tab ?? "emoji");
+  }
   flushSync(render);
+  if (initial?.id) root.querySelector<HTMLInputElement>(".icon-picker-search")?.focus();
   // The search text is built after the first frame, so it is ready before the first keystroke
   // without slowing the page's first paint.
   if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => setTimeout(() => warmSearch(emoji), 0));

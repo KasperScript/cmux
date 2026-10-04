@@ -11,8 +11,8 @@ import { mountIconPicker } from "./mount";
 export function mount(root: HTMLElement, ctx: ShellContext): { unmount(): void } {
   ctx.style(pageStyles);
   ctx.style(shellStyles);
-  const picker = mountIconPicker(root, ctx.client, ctx.strings(table));
-  const session = ctx.context as PickerSession | null | undefined;
-  if (session && typeof session.id === "string" && session.id) picker.open(session);
+  const context = ctx.context as PickerSession | null | undefined;
+  const session = context && typeof context.id === "string" && context.id ? context : undefined;
+  const picker = mountIconPicker(root, ctx.client, ctx.strings(table), undefined, session);
   return { unmount: () => picker.unmount() };
 }

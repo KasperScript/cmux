@@ -150,3 +150,17 @@ test("unmount (the page shell's reset) empties the root and ends the session str
   await act(async () => host.open({ id: "s2" }));
   expect(doc().querySelector(".icon-picker")).toBeNull();
 });
+
+test("a first session (the page shell's claim context) shows from the first render", async () => {
+  await act(async () => picker.unmount());
+  const second = new MockIconPickerHost();
+  await act(async () => {
+    picker = mountIconPicker(doc().getElementById("root")!, second, createStrings(table, ["en"]), freshCreateRoot(), {
+      id: "claim-1",
+      tab: "symbol",
+      symbols: MOCK_SYMBOLS,
+    });
+  });
+  expect(doc().querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe("Symbols");
+  expect(doc().activeElement).toBe(search());
+});
