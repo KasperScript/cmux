@@ -363,11 +363,9 @@ fn run(
                         None => Ok(rquickjs::Value::new_null(ctx.clone())),
                     }
                 };
-                if let (Some(on_result), Ok(error), Ok(result)) = (
-                    entry(&ctx, &shared, "__cmuxHostOnResult"),
-                    as_js(error),
-                    as_js(result),
-                ) {
+                if let (Some(on_result), Ok(error), Ok(result)) =
+                    (entry(&ctx, &shared, "__cmuxHostOnResult"), as_js(error), as_js(result))
+                {
                     let _: rquickjs::Result<()> = on_result.call((call_id, error, result));
                 }
                 if running.is_none() {
@@ -417,7 +415,9 @@ fn caught_in(ctx: &Ctx<'_>, shared: &Rc<RefCell<Shared>>, error: rquickjs::Error
         Some(Ok(text)) => text,
         _ => {
             let fallback: rquickjs::Result<Function> = ctx.eval(FORMAT_ERROR);
-            fallback.and_then(|f| f.call::<_, String>((exception,))).unwrap_or_else(|e| e.to_string())
+            fallback
+                .and_then(|f| f.call::<_, String>((exception,)))
+                .unwrap_or_else(|e| e.to_string())
         }
     }
 }
@@ -561,21 +561,27 @@ fn install(
         let function = Function::new(ctx.clone(), move |op: String, args: String| -> String {
             let answer = |result: Result<Value, (&str, String)>| match result {
                 Ok(value) => json!({"ok": value}).to_string(),
-                Err((code, message)) => json!({"error": {"code": code, "message": message}}).to_string(),
+                Err((code, message)) => {
+                    json!({"error": {"code": code, "message": message}}).to_string()
+                }
             };
             let Ok(mut args) = serde_json::from_str::<Value>(&args) else {
                 return answer(Err(("invalid", format!("{name}: the arguments must be JSON"))));
             };
             // secrets.load {path}: the file is read here, through the
             // session's fs sandbox, so its values never enter the VM.
-            if name == "secrets" && op == "load" && let Some(path) = args["path"].as_str() {
+            if name == "secrets"
+                && op == "load"
+                && let Some(path) = args["path"].as_str()
+            {
                 let read = sandbox.call("readFile", &json!({"path": path}));
                 let Some(text) = read["ok"]
                     .as_str()
                     .and_then(crate::fs_sandbox::base64_decode)
                     .and_then(|bytes| String::from_utf8(bytes).ok())
                 else {
-                    let message = read["error"]["message"].as_str().unwrap_or("could not read the file");
+                    let message =
+                        read["error"]["message"].as_str().unwrap_or("could not read the file");
                     return answer(Err(("invalid", format!("secrets.load: {message}"))));
                 };
                 let Ok(object) = serde_json::from_str::<Value>(&text) else {

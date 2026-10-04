@@ -258,14 +258,18 @@ impl Gate {
     /// Agent code may not replace or delete a secret the user gave the host.
     fn refuse_user_secret(&self, title: &str, name: &str) -> Result<(), String> {
         if self.vault().agent_known(name) == Some(false) {
-            return Err(format!(
-                "{title}: {name} is a user secret; agent code cannot change it"
-            ));
+            return Err(format!("{title}: {name} is a user secret; agent code cannot change it"));
         }
         Ok(())
     }
 
-    fn set_secret(&self, name: &str, value: &str, domains: &[String], totp: bool) -> Result<Value, String> {
+    fn set_secret(
+        &self,
+        name: &str,
+        value: &str,
+        domains: &[String],
+        totp: bool,
+    ) -> Result<Value, String> {
         self.refuse_user_secret("secrets.set", name)?;
         self.vault().set(name, value, domains, totp, true).map_err(|e| e.0)?;
         Ok(described(name, domains, totp))
@@ -343,14 +347,18 @@ impl Gate {
             "site" => Ok(json!(crate::policy::site_of(args["host"].as_str().unwrap_or("")))),
             // The host's own log of blocked navigations (cmux-next: the host
             // blocks before the request, so the runtime does not see these).
-            "log" => Ok(Value::Array(self.log.lock().unwrap_or_else(PoisonError::into_inner).clone())),
+            "log" => {
+                Ok(Value::Array(self.log.lock().unwrap_or_else(PoisonError::into_inner).clone()))
+            }
             // Agent code may only narrow: the host intersects with the user's
             // layer and refuses changes after a lock.
             "set" => {
                 let title = args["title"].as_str().unwrap_or("session.policy");
                 let mut policy = self.policy.lock().unwrap_or_else(PoisonError::into_inner);
                 let mut layer = policy.agent().clone();
-                let parse = |v: &Value| parse_patterns(&strings(v)).map_err(|e| format!("{title}: {}", e.0));
+                let parse = |v: &Value| {
+                    parse_patterns(&strings(v)).map_err(|e| format!("{title}: {}", e.0))
+                };
                 match args.get("allowed") {
                     Some(Value::Null) => layer.allowed = None,
                     Some(list) => {
