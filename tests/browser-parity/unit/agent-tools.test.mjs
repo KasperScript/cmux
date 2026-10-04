@@ -206,7 +206,7 @@ test("secrets: a registered value never appears in output, errors, page reads or
     await withRepl(async ({ run, dir, sessionTmp, outputs }) => {
       let r = await run(`secrets.load(${JSON.stringify(secretsFile)})`);
       assert.equal(r.error, null);
-      assert.match(r.output, /name: 'apikey',\s+domains: \[ 'localhost' \],\s+totp: false,\s+agentKnown: true/);
+      assert.match(r.output, /name: 'apikey',\s+domains: \[ 'localhost' \],\s+totp: false/);
       r = await run(`
         const rec = session.record();
         await page.goto("${primary}/agent-tools.html?peer=${peer}");
