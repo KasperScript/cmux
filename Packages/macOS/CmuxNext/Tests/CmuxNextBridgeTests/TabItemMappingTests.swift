@@ -45,3 +45,19 @@ struct TabItemMappingTests {
         #expect(TabItemMapping.shared.item(tab, fallbackTitle: "t").status == .none)
     }
 }
+
+/// An agent chat tab (a conversation tab whose source is an acpmux session)
+/// wears the agent chat symbol, not Home's conversation symbol.
+@MainActor
+struct AgentSessionTabItemTests {
+    @Test func anAgentSessionTabWearsTheAgentChatSymbol() throws {
+        let line = #"""
+        {"surface":8,"kind":"conversation","browser_renderer":"frontend","title":"about:blank",
+         "conversation":{"agent_session":{"host":"install:mac-1","session":"s-1","harness":null}}}
+        """#
+        let tab = TabModel(try JSONDecoder().decode(TabSnapshot.self, from: Data(line.utf8)))
+        let item = TabItemMapping.shared.item(tab, fallbackTitle: "Chat")
+        #expect(item.icon == .symbol("bubble.left.and.text.bubble.right"))
+        #expect(item.title == "Chat")
+    }
+}
